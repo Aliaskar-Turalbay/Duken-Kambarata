@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Дүкен Касса</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  --bg:#EEF2EF; --surface:#FFFFFF; --surface-2:#F6F8F6; --ink:#14201A; --muted:#5B6961; --line:#D8E0DA;
+  --accent:#1D7A50; --accent-ink:#FFFFFF; --accent-soft:#DDEFE5; --chip:#E4EBE6;
+  --warn:#9A6100; --warn-soft:#FBEFD6; --danger:#B42318; --danger-soft:#FBE4E1; --info:#23579E; --info-soft:#E0EAF7;
+  --paper:#FFFEF8; --shadow:0 1px 2px rgba(20,32,26,.06),0 6px 18px rgba(20,32,26,.06);
+  --ui:"Onest",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  color-scheme:dark;
+  --bg:#0E1411; --surface:#161F1A; --surface-2:#1B2620; --ink:#E5EDE8; --muted:#93A39A; --line:#27342D;
+  --accent:#3DB57C; --accent-ink:#05130C; --accent-soft:#17362A; --chip:#202C26;
+  --warn:#E3A93C; --warn-soft:#3A2D12; --danger:#F07466; --danger-soft:#3D1C18; --info:#7FAEEB; --info-soft:#18283D;
+  --paper:#1E2621; --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 18px rgba(0,0,0,.25);
+}}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0E1411; --surface:#161F1A; --surface-2:#1B2620; --ink:#E5EDE8; --muted:#93A39A; --line:#27342D;
+  --accent:#3DB57C; --accent-ink:#05130C; --accent-soft:#17362A; --chip:#202C26;
+  --warn:#E3A93C; --warn-soft:#3A2D12; --danger:#F07466; --danger-soft:#3D1C18; --info:#7FAEEB; --info-soft:#18283D;
+  --paper:#1E2621; --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 18px rgba(0,0,0,.25);
+}
+html,body{height:100%}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font:15px/1.45 var(--ui);margin:0}
+button,input,select{font:inherit;color:inherit}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* top bar */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--surface);border-bottom:1px solid var(--line)}
+.top-in{display:flex;align-items:center;gap:16px;padding:10px 16px;max-width:1500px;margin:0 auto}
+.brand{display:flex;align-items:baseline;gap:8px;font-weight:700;font-size:19px;letter-spacing:-.01em;white-space:nowrap}
+.brand small{font-weight:500;font-size:12px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+.tabs{display:flex;gap:4px;overflow-x:auto;flex:1;scrollbar-width:none}
+.tab{border:0;background:transparent;padding:8px 14px;border-radius:8px;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap}
+.tab:hover{background:var(--chip);color:var(--ink)}
+.tab[aria-selected="true"]{background:var(--ink);color:var(--bg)}
+.who{display:flex;align-items:center;gap:10px;white-space:nowrap}
+.status{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+.status i{width:8px;height:8px;border-radius:50%;background:var(--warn)}
+.status.ok i{background:var(--accent)}
+.cashier-btn{border:1px solid var(--line);background:var(--surface-2);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:13px}
+@media (max-width:760px){.top-in{flex-wrap:wrap;gap:8px}.tabs{order:3;flex-basis:100%}.who{margin-left:auto}.status span{display:none}}
+
+main{max-width:1500px;margin:0 auto;padding:16px}
+.view[hidden]{display:none!important}
+
+/* generic */
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:9px 14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:8px;justify-content:center}
+.btn:hover{background:var(--surface-2)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover{filter:brightness(1.06)}
+.btn.danger{color:var(--danger);border-color:var(--danger-soft)}
+.btn.danger.armed{background:var(--danger);color:#fff;border-color:var(--danger)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.ghost{border-color:transparent;background:transparent}
+kbd{font-family:var(--mono);font-size:11px;border:1px solid currentColor;border-radius:4px;padding:0 4px;opacity:.7}
+.field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.field label{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.02em}
+.inp{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:9px 12px;width:100%;min-width:0}
+.inp:focus{border-color:var(--accent);outline:none;box-shadow:0 0 0 3px var(--accent-soft)}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px}
+.panel-h{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-bottom:1px solid var(--line)}
+.panel-h h2{margin:0;font-size:16px}
+.panel-b{padding:16px}
+.pill{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;border-radius:999px;padding:2px 9px;white-space:nowrap}
+.pill.ok{background:var(--accent-soft);color:var(--accent)}
+.pill.warn{background:var(--warn-soft);color:var(--warn)}
+.pill.bad{background:var(--danger-soft);color:var(--danger)}
+.pill.info{background:var(--info-soft);color:var(--info)}
+.pill.mute{background:var(--chip);color:var(--muted)}
+.muted{color:var(--muted)}
+.empty{padding:28px 16px;text-align:center;color:var(--muted)}
+.tbl-wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600;text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:middle}
+td.r,th.r{text-align:right}
+tr.click{cursor:pointer}
+tr.click:hover td{background:var(--surface-2)}
+
+/* POS */
+.pos{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:16px;align-items:start}
+@media (max-width:980px){.pos{grid-template-columns:1fr}}
+.search-row{display:flex;gap:8px;align-items:center}
+.search{flex:1;position:relative}
+.search .inp{padding:12px 14px 12px 40px;font-size:16px;border-radius:12px}
+.search svg{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--muted)}
+.cats{display:flex;gap:6px;overflow-x:auto;padding:12px 0 4px;scrollbar-width:thin}
+.cat{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 13px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;color:var(--muted)}
+.cat[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-top:10px}
+.tile{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:12px;text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:8px;min-height:112px;transition:transform .08s,border-color .1s}
+.tile:hover{border-color:var(--accent)}
+.tile:active{transform:scale(.98)}
+.tile .nm{font-weight:600;font-size:14px;line-height:1.25;flex:1}
+.tile .pr{font-family:var(--mono);font-weight:600;font-size:15px}
+.tile .meta{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+.tile .meta .num{font-size:12px}
+.cart{position:sticky;top:calc(env(safe-area-inset-top,0px) + 76px);display:flex;flex-direction:column;max-height:calc(100vh - 100px)}
+@media (max-width:980px){.cart{position:static;max-height:none}}
+.cart-lines{overflow-y:auto;flex:1;min-height:120px}
+.line{display:grid;grid-template-columns:1fr auto;gap:4px 10px;padding:10px 16px;border-bottom:1px solid var(--line)}
+.line .ln{font-weight:600;font-size:14px}
+.line .lp{font-size:12px;color:var(--muted)}
+.line .ls{font-family:var(--mono);font-weight:600;text-align:right}
+.qty{display:flex;align-items:center;gap:4px}
+.qbtn{width:30px;height:30px;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);cursor:pointer;font-weight:700;line-height:1}
+.qval{min-width:64px;text-align:center;border:1px dashed var(--line);border-radius:8px;padding:4px 6px;background:transparent;cursor:pointer;font-family:var(--mono);font-size:13px}
+.rm{border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:12px;padding:4px}
+.rm:hover{color:var(--danger)}
+.cart-foot{padding:14px 16px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:12px;background:var(--surface-2);border-radius:0 0 14px 14px}
+.total-row{display:flex;justify-content:space-between;align-items:baseline}
+.total-row .big{font-family:var(--mono);font-size:30px;font-weight:600;letter-spacing:-.02em}
+.pay-btn{padding:15px;font-size:17px;border-radius:12px}
+
+/* modal */
+.overlay{position:fixed;inset:0;background:rgba(8,14,11,.5);z-index:50;display:flex;align-items:flex-start;justify-content:center;padding:6vh 16px 16px;overflow-y:auto}
+.modal{background:var(--surface);border-radius:16px;width:100%;max-width:520px;box-shadow:0 20px 60px rgba(0,0,0,.3);border:1px solid var(--line)}
+.modal.wide{max-width:680px}
+.modal-h{display:flex;justify-content:space-between;align-items:center;padding:16px 18px;border-bottom:1px solid var(--line)}
+.modal-h h3{margin:0;font-size:17px}
+.modal-b{padding:18px;display:flex;flex-direction:column;gap:14px}
+.modal-f{display:flex;gap:8px;justify-content:flex-end;padding:14px 18px;border-top:1px solid var(--line);flex-wrap:wrap}
+.x{border:0;background:transparent;font-size:22px;line-height:1;cursor:pointer;color:var(--muted);padding:4px 8px}
+.methods{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.method{border:1.5px solid var(--line);border-radius:12px;padding:12px 8px;background:var(--surface);cursor:pointer;font-weight:600;display:flex;flex-direction:column;align-items:center;gap:4px}
+.method small{font-weight:500;color:var(--muted);font-size:11px}
+.method[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+.quick{display:flex;flex-wrap:wrap;gap:6px}
+.quick button{border:1px solid var(--line);background:var(--surface-2);border-radius:8px;padding:6px 10px;cursor:pointer;font-family:var(--mono);font-size:13px}
+.due{display:flex;justify-content:space-between;align-items:baseline;padding:12px 14px;background:var(--surface-2);border-radius:12px}
+.due b{font-family:var(--mono);font-size:26px}
+.change{display:flex;justify-content:space-between;font-weight:600}
+.change .num{font-size:20px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:480px){.grid2{grid-template-columns:1fr}.methods{grid-template-columns:1fr}}
+.err{color:var(--danger);font-size:13px;min-height:1em}
+
+/* receipt */
+.receipt{background:var(--paper);font-family:var(--mono);font-size:13px;padding:18px 18px 22px;border:1px solid var(--line);border-radius:4px;max-width:360px;margin:0 auto;width:100%;position:relative}
+.receipt::after{content:"";position:absolute;left:0;right:0;bottom:-7px;height:8px;background:radial-gradient(circle at 5px 0,transparent 5px,var(--paper) 5.5px) 0 0/10px 8px repeat-x}
+.receipt .c{text-align:center}
+.receipt hr{border:0;border-top:1px dashed var(--muted);margin:10px 0}
+.receipt .rr{display:flex;justify-content:space-between;gap:8px}
+.receipt .it{margin:6px 0}
+.receipt .tot{font-size:17px;font-weight:600}
+.stamp{display:inline-block;border:2px solid var(--danger);color:var(--danger);padding:2px 8px;transform:rotate(-4deg);font-weight:600;letter-spacing:.1em;margin-top:8px}
+
+/* products / stock / sales */
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+.toolbar .inp{max-width:320px}
+.chk{display:inline-flex;gap:6px;align-items:center;font-size:14px;cursor:pointer}
+.stock-grid{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:980px){.stock-grid{grid-template-columns:1fr}}
+.stack{display:flex;flex-direction:column;gap:16px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.row .field{flex:1 1 120px}
+.row .field.wide{flex:3 1 220px}
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+@media (max-width:760px){.kpis{grid-template-columns:repeat(2,1fr)}}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.kpi .k{font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+.kpi .v{font-family:var(--mono);font-size:24px;font-weight:600;margin-top:4px}
+.sales-grid{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:980px){.sales-grid{grid-template-columns:1fr}}
+.bar{display:grid;grid-template-columns:90px 1fr auto;gap:10px;align-items:center;font-size:14px;margin:8px 0}
+.bar .track{height:10px;background:var(--chip);border-radius:6px;overflow:hidden}
+.bar .fill{height:100%;background:var(--accent);border-radius:6px}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;z-index:60;font-weight:500;box-shadow:var(--shadow);max-width:calc(100% - 32px)}
+.banner{background:var(--warn-soft);color:var(--warn);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:14px}
+
+/* login & roles */
+.login-wrap{min-height:100%;display:flex;align-items:center;justify-content:center;padding-block:10vh;padding-inline:16px}
+.login{width:100%;max-width:380px;display:flex;flex-direction:column;gap:14px;padding:24px}
+.login h1{margin:0;font-size:26px;letter-spacing:-.01em}
+.login p{margin:0}
+body[data-role="cashier"] .owner-only{display:none!important}
+.role-note{font-size:13px;color:var(--muted)}
+.setup{max-width:640px;margin:10vh auto;padding:24px;line-height:1.6}
+.setup code{font-family:var(--mono);background:var(--chip);padding:1px 6px;border-radius:5px}
+</style>
+</head>
+<body>
+<div id="setup" class="setup" hidden></div>
+
+<div id="login" class="login-wrap" hidden>
+  <form class="panel login" id="login-form" novalidate>
+    <h1 id="login-title">Дүкен</h1>
+    <p class="muted">Войдите, чтобы открыть кассу</p>
+    <div class="field"><label for="l-email">Email</label><input class="inp" id="l-email" type="email" autocomplete="username" required></div>
+    <div class="field"><label for="l-pass">Пароль</label><input class="inp" id="l-pass" type="password" autocomplete="current-password" required></div>
+    <div class="err" id="l-err"></div>
+    <button class="btn primary pay-btn" id="l-btn" type="submit">Войти</button>
+    <p class="role-note">Учётные записи создаёт владелец магазина в панели Supabase.</p>
+  </form>
+</div>
+
+<div id="app" hidden>
+<header class="top">
+  <div class="top-in">
+    <div class="brand"><span id="brand-name">Дүкен</span> <small>касса</small></div>
+    <nav class="tabs" role="tablist">
+      <button class="tab" role="tab" data-tab="pos" aria-selected="true">Касса</button>
+      <button class="tab" role="tab" data-tab="products" aria-selected="false">Товары</button>
+      <button class="tab" role="tab" data-tab="stock" aria-selected="false">Склад</button>
+      <button class="tab" role="tab" data-tab="sales" aria-selected="false">Продажи</button>
+    </nav>
+    <div class="who">
+      <span class="status" id="status"><i></i><span>Подключение…</span></span>
+      <button class="cashier-btn" id="cashier-btn" title="Профиль и выход">—</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div id="banner"></div>
+
+  <!-- POS -->
+  <section class="view" id="v-pos">
+    <div class="pos">
+      <div>
+        <div class="search-row">
+          <div class="search">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+            <input class="inp" id="pos-q" placeholder="Название, штрихкод или PLU — сканер вводит сюда" autocomplete="off">
+          </div>
+        </div>
+        <div class="cats" id="pos-cats"></div>
+        <div class="grid" id="pos-grid"></div>
+      </div>
+      <aside class="panel cart">
+        <div class="panel-h"><h2>Чек</h2><span class="muted" id="cart-count">0 позиций</span></div>
+        <div class="cart-lines" id="cart-lines"></div>
+        <div class="cart-foot">
+          <div class="total-row"><span class="muted">К оплате</span><span class="big" id="cart-total">0 ₸</span></div>
+          <button class="btn primary pay-btn" id="pay-btn" disabled>Оплатить <kbd>F9</kbd></button>
+          <button class="btn ghost" id="clear-btn" disabled>Очистить чек</button>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- PRODUCTS -->
+  <section class="view" id="v-products" hidden>
+    <div class="toolbar">
+      <input class="inp" id="pr-q" placeholder="Поиск товара" autocomplete="off">
+      <select class="inp" id="pr-cat" style="max-width:200px"></select>
+      <label class="chk"><input type="checkbox" id="pr-low"> Мало на складе</label>
+      <span style="flex:1"></span>
+      <button class="btn primary" id="pr-add">+ Новый товар</button>
+    </div>
+    <div class="panel"><div class="tbl-wrap" id="pr-table"></div></div>
+  </section>
+
+  <!-- STOCK -->
+  <section class="view" id="v-stock" hidden>
+    <div class="stock-grid">
+      <div class="stack">
+        <div class="panel">
+          <div class="panel-h"><h2>Приход товара</h2><span class="muted" style="font-size:13px">накладная от поставщика</span></div>
+          <div class="panel-b stack" style="gap:12px">
+            <div class="row">
+              <div class="field wide"><label for="in-sup">Поставщик</label><input class="inp" id="in-sup" placeholder="ТОО «Молочный двор»"></div>
+              <div class="field"><label for="in-doc">№ накладной</label><input class="inp" id="in-doc" placeholder="00123"></div>
+            </div>
+            <div class="field"><label for="in-scan">Сканируйте товар из накладной</label>
+              <input class="inp num" id="in-scan" placeholder="Штрихкод или название + Enter" autocomplete="off" style="font-size:16px"></div>
+            <div class="row">
+              <div class="field wide"><label for="in-p">Товар</label><select class="inp" id="in-p"></select></div>
+              <div class="field"><label for="in-q">Количество</label><input class="inp num" id="in-q" type="number" min="0" step="0.001" inputmode="decimal"></div>
+              <div class="field"><label for="in-c">Закуп, ₸/ед.</label><input class="inp num" id="in-c" type="number" min="0" step="1" inputmode="decimal"></div>
+              <button class="btn" id="in-addline">Добавить</button>
+            </div>
+            <div class="err" id="in-err"></div>
+            <div class="tbl-wrap" id="in-lines"></div>
+            <div class="row" style="justify-content:space-between;align-items:center">
+              <span>Сумма накладной: <b class="num" id="in-sum">0 ₸</b></span>
+              <button class="btn primary" id="in-post" disabled>Провести приход</button>
+            </div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-h"><h2>История движения</h2></div>
+          <div class="tbl-wrap" id="mv-history"></div>
+        </div>
+      </div>
+      <div class="stack">
+        <div class="panel owner-only">
+          <div class="panel-h"><h2>Списание</h2></div>
+          <div class="panel-b stack" style="gap:12px">
+            <div class="field"><label for="wo-p">Товар</label><select class="inp" id="wo-p"></select></div>
+            <div class="grid2">
+              <div class="field"><label for="wo-q">Количество</label><input class="inp num" id="wo-q" type="number" min="0" step="0.001" inputmode="decimal"></div>
+              <div class="field"><label for="wo-r">Причина</label>
+                <select class="inp" id="wo-r"><option>Истёк срок годности</option><option>Порча</option><option>Бой / повреждение</option><option>Недостача</option><option>Для нужд магазина</option></select></div>
+            </div>
+            <div class="err" id="wo-err"></div>
+            <button class="btn danger" id="wo-post">Списать</button>
+          </div>
+        </div>
+        <div class="panel owner-only">
+          <div class="panel-h"><h2>Инвентаризация</h2><span class="muted" style="font-size:13px">пересчёт остатка</span></div>
+          <div class="panel-b stack" style="gap:12px">
+            <div class="field"><label for="iv-p">Товар</label><select class="inp" id="iv-p"></select></div>
+            <div class="grid2">
+              <div class="field"><label>По учёту</label><div class="inp num" id="iv-book" style="background:var(--surface-2)">—</div></div>
+              <div class="field"><label for="iv-q">Фактически</label><input class="inp num" id="iv-q" type="number" min="0" step="0.001" inputmode="decimal"></div>
+            </div>
+            <div class="err" id="iv-err"></div>
+            <button class="btn" id="iv-post">Сохранить факт</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SALES -->
+  <section class="view" id="v-sales" hidden>
+    <div class="toolbar">
+      <input class="inp num" type="date" id="sl-date" style="max-width:190px">
+      <button class="btn" id="sl-today">Сегодня</button>
+    </div>
+    <div id="sl-body"></div>
+  </section>
+</main>
+
+<div class="overlay" id="modal" hidden><div class="modal" id="modal-box" role="dialog" aria-modal="true"></div></div>
+<div class="toast" id="toast" hidden></div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.1/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
