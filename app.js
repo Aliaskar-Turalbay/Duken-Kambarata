@@ -160,47 +160,114 @@ function setTab(t) {
 }
 function refresh() {
   setStatus();
-  if (S.tab === 'pos') { renderCats(); renderGrid(); renderCart(); }
+  if (S.tab === 'pos') { renderGrid(); renderCart(); }
   if (S.tab === 'products') renderProducts();
   if (S.tab === 'stock') renderStock();
   if (S.tab === 'sales') renderSales();
 }
 
 /* ---------- касса ---------- */
-function renderCats() {
-  const list = ['Все', ...cats()];
-  if (!list.includes(S.cat)) S.cat = 'Все';
-  $('#pos-cats').innerHTML = list.map(c => `<button class="cat" data-c="${esc(c)}" aria-pressed="${c === S.cat}">${esc(c)}</button>`).join('');
+// Звук сканера: короткий писк — товар найден, двойной низкий — ошибка
+let audioCtx = null;
+S.sound = (() => { try { return localStorage.getItem('duken-sound') !== 'off'; } catch (e) { return true; } })();
+function beep(ok) {
+  if (!S.sound) return;
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const tones = ok ? [[1760, 0, 0.07]] : [[330, 0, 0.12], [262, 0.16, 0.16]];
+    tones.forEach(([f, at, len]) => {
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain(), t = audioCtx.currentTime + at;
+      o.type = 'square'; o.frequency.value = f; g.gain.setValueAtTime(0.06, t); g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+      o.connect(g).connect(audioCtx.destination); o.start(t); o.stop(t + len + 0.02);
+    });
+  } catch (e) {}
 }
-$('#pos-cats').onclick = e => { const b = e.target.closest('.cat'); if (!b) return; S.cat = b.dataset.c; renderCats(); renderGrid(); };
+function renderSoundBtn() {
+  const b = $('#snd-btn'); b.setAttribute('aria-pressed', String(S.sound));
+  b.title = S.sound ? 'Звук сканера включён' : 'Звук сканера выключен';
+  b.innerHTML = S.sound
+    ? '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>'
+    : '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="m16 9 5 6M21 9l-5 6"/></svg>';
+}
+$('#snd-btn').onclick = () => { S.sound = !S.sound; try { localStorage.setItem('duken-sound', S.sound ? 'on' : 'off'); } catch (e) {} renderSoundBtn(); if (S.sound) beep(true); $('#pos-q').focus(); };
+renderSoundBtn();
+
+// Множитель: «3*» перед сканом или выбором товара — добавить 3 шт (для весового — 3 кг)
+function parseQ() {
+  const v = $('#pos-q').value.trim();
+  const m = v.match(/^(\d+(?:[.,]\d+)?)\s*[*хx×]\s*(.*)$/i);
+  return m ? { mult: parseFloat(m[1].replace(',', '.')), rest: m[2].trim() } : { mult: null, rest: v };
+}
+function renderMult() {
+  const { mult } = parseQ(), el = $('#mult');
+  el.hidden = !mult; if (mult) el.textContent = '× ' + String(mult).replace('.', ',');
+}
 function filtered() {
-  const q = $('#pos-q').value.trim().toLowerCase();
-  return prodList().filter(p => (S.cat === 'Все' || (p.category || 'Без категории') === S.cat) &&
-    (!q || p.name.toLowerCase().includes(q) || (p.barcode || '').includes(q) || (p.plu && p.plu === q)));
+  const q = parseQ().rest.toLowerCase();
+  if (!q) return [];
+  return prodList().filter(p => p.name.toLowerCase().includes(q) || (p.barcode || '').includes(q) || (p.plu && p.plu === q));
+}
+// Подсказки под строкой поиска — вместо каталога на экране
+S.sugIdx = 0;
+function renderSug() {
+  const { rest } = parseQ(), box = $('#pos-sug');
+  const digitsOnly = /^\d+$/.test(rest);
+  // штрихкод со сканера не показываем списком — он сразу добавится по Enter
+  const list = rest.length >= 2 && !(digitsOnly && rest.length >= 6) ? filtered().slice(0, 8) : [];
+  S.sug = list;
+  if (!list.length) {
+    const nothing = rest.length >= 2 && !digitsOnly;
+    box.hidden = !nothing; box.innerHTML = nothing ? '<div class="sug-empty">Ничего не найдено</div>' : '';
+    return;
+  }
+  if (S.sugIdx >= list.length) S.sugIdx = 0;
+  box.hidden = false;
+  box.innerHTML = list.map((p, i) => `<button class="sug${i === S.sugIdx ? ' on' : ''}" data-id="${esc(p.id)}" tabindex="-1">
+      <span class="sug-nm">${esc(p.name)}<small>${p.unit === 'кг' ? 'весовой' + (p.plu ? ' · PLU ' + esc(p.plu) : '') : esc(p.barcode || '')}</small></span>
+      <span class="sug-st">${stockPill(p)}</span>
+      <span class="sug-pr num">${money(p.price)}${p.unit === 'кг' ? '/кг' : ''}</span>
+    </button>`).join('');
 }
 function renderGrid() {
-  const list = filtered();
-  $('#pos-grid').innerHTML = list.length ? list.map(p => `
-    <button class="tile" data-id="${esc(p.id)}">
-      <span class="nm">${esc(p.name)}</span>
-      <span class="pr">${money(p.price)}${p.unit === 'кг' ? '<span class="muted" style="font-weight:500;font-size:12px"> /кг</span>' : ''}</span>
-      <span class="meta">${p.unit === 'кг' ? `<span class="pill info">весовой${p.plu ? ' · ' + esc(p.plu) : ''}</span>` : '<span></span>'}${stockPill(p)}</span>
-    </button>`).join('')
-    : `<div class="empty" style="grid-column:1/-1">${Object.keys(S.products).length ? 'Ничего не найдено' : 'Каталог пуст. Отсканируйте первый товар — программа предложит его создать.'}</div>`;
+  const pinned = prodList().filter(p => p.pinned);
+  $('#quick-wrap').hidden = !pinned.length;
+  $('#pos-quick').innerHTML = pinned.map(p => `<button class="qtile" data-id="${esc(p.id)}"><span>${esc(p.name)}</span><span class="pr">${money(p.price)}${p.unit === 'кг' ? ' /кг' : ''}</span></button>`).join('');
+  renderSug(); renderMult();
 }
-$('#pos-q').addEventListener('input', renderGrid);
+$('#pos-q').addEventListener('input', () => { S.sugIdx = 0; renderSug(); renderMult(); });
+$('#pos-q').addEventListener('blur', () => setTimeout(() => { if (document.activeElement !== $('#pos-q')) $('#pos-sug').hidden = true; }, 150));
+$('#pos-q').addEventListener('focus', renderSug);
 $('#pos-q').addEventListener('keydown', e => {
+  const open = !$('#pos-sug').hidden && S.sug && S.sug.length;
+  if (open && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+    e.preventDefault(); e.stopPropagation();
+    S.sugIdx = (S.sugIdx + (e.key === 'ArrowDown' ? 1 : -1) + S.sug.length) % S.sug.length; renderSug(); return;
+  }
+  if (e.key === 'Escape' && $('#pos-q').value) { e.preventDefault(); e.stopPropagation(); clearQ(); return; }
   if (e.key !== 'Enter') return;
-  const q = e.target.value.trim(); if (!q) return;
-  const hit = findByCode(q);
-  if (hit) { addToCart(hit.p, hit.w); if (hit.w) toast(`${hit.p.name}: ${qf(hit.w, 'кг')}`); return clearQ(); }
+  const { mult, rest } = parseQ(); if (!rest) { if (mult) toast('После «' + String(mult).replace('.', ',') + '*» отсканируйте товар или найдите его по названию'); return; }
+  const hit = findByCode(rest);
+  if (hit) { addToCart(hit.p, hit.w ?? mult ?? undefined); if (hit.w) toast(`${hit.p.name}: ${qf(hit.w, 'кг')}`); return clearQ(); }
+  if (open) { addToCart(S.sug[S.sugIdx], mult ?? undefined); return clearQ(); }
   const f = filtered();
-  if (f.length === 1) { addToCart(f[0]); return clearQ(); }
-  if (!f.length && /^\d{6,14}$/.test(q)) { clearQ(); return unknownCode(q, 'pos'); }
-  toast(f.length ? 'Найдено несколько товаров — выберите нужный' : 'Товар не найден');
+  if (f.length === 1) { addToCart(f[0], mult ?? undefined); return clearQ(); }
+  if (!f.length && /^\d{6,14}$/.test(rest)) { beep(false); clearQ(); return unknownCode(rest, 'pos'); }
+  beep(false);
+  toast(f.length ? 'Найдено несколько товаров — выберите стрелками' : 'Товар не найден');
 });
-function clearQ() { $('#pos-q').value = ''; renderGrid(); }
-$('#pos-grid').onclick = e => { const t = e.target.closest('.tile'); if (!t) return; const p = S.products[t.dataset.id]; if (p) addToCart(p); };
+function clearQ() { $('#pos-q').value = ''; S.sugIdx = 0; renderSug(); renderMult(); }
+function tileClick(e) {
+  const t = e.target.closest('[data-id]'); if (!t) return;
+  e.preventDefault();
+  const p = S.products[t.dataset.id]; if (!p) return;
+  const { mult } = parseQ();
+  const fromSug = !!e.target.closest('#pos-sug');
+  addToCart(p, mult ?? undefined); if (mult || fromSug) clearQ();
+  $('#pos-q').focus();
+}
+$('#pos-sug').addEventListener('mousedown', e => e.preventDefault()); // не терять фокус поиска
+$('#pos-sug').onclick = tileClick;
+$('#pos-quick').onclick = tileClick;
 
 function findByCode(code) {
   const list = prodList();
@@ -235,7 +302,7 @@ document.addEventListener('keydown', e => {
   const now = Date.now();
   if (now - scan.last > 80) scan.buf = '';
   scan.last = now;
-  if (e.key === 'Enter' && scan.buf.length >= 6) { e.preventDefault(); const c = scan.buf; scan.buf = ''; handleScan(c); return; }
+  if (e.key === 'Enter' && scan.buf.length >= 6) { e.preventDefault(); e.stopPropagation(); const c = scan.buf; scan.buf = ''; handleScan(c); return; }
   if (/^[0-9A-Za-z]$/.test(e.key)) scan.buf += e.key;
 }, true);
 function handleScan(code) {
@@ -243,7 +310,7 @@ function handleScan(code) {
   const hit = findByCode(code);
   if (S.tab === 'pos') {
     if (hit) { addToCart(hit.p, hit.w); if (hit.w) toast(`${hit.p.name}: ${qf(hit.w, 'кг')}`); }
-    else unknownCode(code, 'pos');
+    else { beep(false); unknownCode(code, 'pos'); }
   } else if (S.tab === 'products') {
     if (hit) editProduct(hit.p); else unknownCode(code, 'products');
   } else if (S.tab === 'stock') {
@@ -251,20 +318,23 @@ function handleScan(code) {
   } else { setTab('pos'); handleScan(code); }
 }
 
+/* --- корзина --- */
+S.sel = -1; S.flash = -1; S.discount = 0; S.maxDisc = null; S.last = null;
 function addToCart(p, qty) {
   if (p.unit === 'кг' && qty == null) return askQty(p, null);
-  const line = S.cart.find(l => l.pid === p.id);
-  if (line && p.unit !== 'кг') line.qty += 1;
-  else if (line && qty != null) line.qty = r3(line.qty + qty);
-  else S.cart.push({ pid: p.id, name: p.name, unit: p.unit, price: +p.price, qty: qty ?? 1 });
-  renderCart();
+  if (p.unit === 'шт' && qty != null && qty !== Math.round(qty)) { beep(false); toast('«' + p.name + '» продаётся поштучно — укажите целое количество'); return; }
+  const add = qty ?? 1;
+  let i = S.cart.findIndex(l => l.pid === p.id);
+  if (i >= 0) S.cart[i].qty = r3(S.cart[i].qty + add);
+  else { S.cart.push({ pid: p.id, name: p.name, unit: p.unit, price: +p.price, qty: r3(add) }); i = S.cart.length - 1; }
+  S.sel = i; S.flash = i; beep(true); renderCart();
 }
 function askQty(p, line) {
   const kg = p.unit === 'кг';
   openModal(`${modalHead(esc(p.name))}
     <div class="modal-b">
       <div class="field"><label for="q-in">${kg ? 'Вес, кг' : 'Количество, шт'}</label>
-        <input class="inp num" id="q-in" type="number" inputmode="decimal" min="0" step="${kg ? '0.001' : '1'}" value="${line ? line.qty : ''}" style="font-size:22px"></div>
+        <input class="inp num" id="q-in" type="number" inputmode="decimal" min="0" step="${kg ? '0.001' : '1'}" value="${line ? line.qty : ''}" style="font-size:24px"></div>
       <div class="muted">Цена: ${money(p.price)}${kg ? ' за кг' : ''} · Сумма: <b class="num" id="q-sum">—</b></div>
       <div class="err" id="q-err"></div>
     </div>
@@ -277,66 +347,179 @@ function askQty(p, line) {
         let v = val();
         if (!(v > 0)) { box.querySelector('#q-err').textContent = kg ? 'Введите вес больше нуля, например 0,450' : 'Введите количество больше нуля'; return; }
         v = kg ? r3(v) : Math.round(v);
-        if (line) line.qty = v; else S.cart.push({ pid: p.id, name: p.name, unit: p.unit, price: +p.price, qty: v });
-        closeModal(); renderCart();
+        closeModal();
+        if (line) { line.qty = v; S.sel = S.cart.indexOf(line); renderCart(); } else addToCart(p, v);
       };
       inp.oninput = upd; upd(); inp.onkeydown = e => { if (e.key === 'Enter') ok(); };
-      box.querySelector('#q-ok').onclick = ok; setTimeout(() => inp.focus(), 0);
+      box.querySelector('#q-ok').onclick = ok; setTimeout(() => { inp.focus(); inp.select(); }, 0);
   } });
 }
 const lineSum = l => Math.round(l.price * l.qty);
-const cartTotal = () => S.cart.reduce((s, l) => s + lineSum(l), 0);
+const cartSubtotal = () => S.cart.reduce((s, l) => s + lineSum(l), 0);
+const cartDiscount = () => Math.round(cartSubtotal() * S.discount / 100);
+const cartTotal = () => cartSubtotal() - cartDiscount();
 function plural(n, a, b, c) { return n % 10 === 1 && n % 100 !== 11 ? a : [2, 3, 4].includes(n % 10) && ![12, 13, 14].includes(n % 100) ? b : c; }
 function renderCart() {
   const n = S.cart.length;
-  $('#cart-count').textContent = n + ' ' + plural(n, 'позиция', 'позиции', 'позиций');
-  $('#cart-lines').innerHTML = n ? S.cart.map((l, i) => `
-    <div class="line">
-      <div><div class="ln">${esc(l.name)}</div><div class="lp num">${money(l.price)}${l.unit === 'кг' ? '/кг' : ''}</div></div>
+  if (!n) { S.sel = -1; S.discount = 0; }
+  if (S.sel >= n) S.sel = n - 1;
+  $('#cart-count').textContent = n ? n + ' ' + plural(n, 'позиция', 'позиции', 'позиций') : 'пусто';
+  $('#cart-lines').innerHTML = n ? S.cart.map((l, i) => {
+    const p = S.products[l.pid], short = p && +p.stock < l.qty;
+    return `
+    <div class="line${i === S.sel ? ' sel' : ''}${i === S.flash ? ' flash' : ''}" data-line="${i}">
+      <div><div class="ln">${esc(l.name)}</div><div class="lp num">${money(l.price)}${l.unit === 'кг' ? '/кг' : ''}${short ? ` · <span class="short">на складе ${qf(Math.max(0, +p.stock), p.unit)}</span>` : ''}</div></div>
       <div class="ls">${money(lineSum(l))}</div>
       <div class="qty">
         ${l.unit === 'кг' ? '' : `<button class="qbtn" data-a="dec" data-i="${i}" aria-label="Меньше">−</button>`}
-        <button class="qval" data-a="edit" data-i="${i}">${qf(l.qty, l.unit)}</button>
+        <button class="qval" data-a="edit" data-i="${i}" title="Изменить количество">${qf(l.qty, l.unit)}</button>
         ${l.unit === 'кг' ? '' : `<button class="qbtn" data-a="inc" data-i="${i}" aria-label="Больше">+</button>`}
       </div>
       <div style="text-align:right"><button class="rm" data-a="rm" data-i="${i}">Убрать</button></div>
-    </div>`).join('')
-    : '<div class="empty">Отсканируйте штрихкод или нажмите на товар</div>';
-  $('#cart-total').textContent = money(cartTotal());
-  $('#pay-btn').disabled = !n; $('#clear-btn').disabled = !n;
+    </div>`; }).join('')
+    : `<div class="empty">Отсканируйте штрихкод или нажмите на товар
+        <div class="help"><span><kbd>3*</kbd> перед сканом — 3 шт</span><span><kbd>+</kbd> <kbd>−</kbd> количество</span><span><kbd>Del</kbd> убрать строку</span><span><kbd>F4</kbd> скидка</span><span><kbd>F8</kbd> отложить</span><span><kbd>F9</kbd> оплата</span></div></div>`;
+  S.flash = -1;
+  const sub = cartSubtotal(), disc = cartDiscount();
+  $('#sub-row').hidden = !S.discount;
+  $('#sub-sum').textContent = money(sub);
+  $('#disc-row').hidden = !S.discount;
+  $('#disc-pct').textContent = S.discount ? String(S.discount).replace('.', ',') + '%' : '';
+  $('#disc-sum').textContent = '−' + money(disc);
+  $('#cart-total').textContent = money(sub - disc);
+  $('#pay-btn').disabled = !n; $('#clear-btn').disabled = !n; $('#disc-btn').disabled = !n; $('#hold-btn').disabled = !n;
+  $('#disc-btn').textContent = S.discount ? 'Скидка ' + String(S.discount).replace('.', ',') + '%' : 'Скидка';
+  $('#disc-btn').classList.toggle('on', !!S.discount);
+  renderHeld(); renderLast();
+  const sel = document.querySelector('.line.sel'); if (sel) sel.scrollIntoView({ block: 'nearest' });
 }
-$('#cart-lines').onclick = e => {
-  const b = e.target.closest('[data-a]'); if (!b) return;
-  const i = +b.dataset.i, l = S.cart[i]; if (!l) return;
-  if (b.dataset.a === 'inc') l.qty += 1;
-  if (b.dataset.a === 'dec') { l.qty -= 1; if (l.qty <= 0) S.cart.splice(i, 1); }
-  if (b.dataset.a === 'rm') S.cart.splice(i, 1);
-  if (b.dataset.a === 'edit') return askQty(S.products[l.pid] || l, l);
+function changeQty(i, d) {
+  const l = S.cart[i]; if (!l) return;
+  if (l.unit === 'кг') return askQty(S.products[l.pid] || l, l);
+  l.qty += d; if (l.qty <= 0) { S.cart.splice(i, 1); S.sel = Math.min(i, S.cart.length - 1); }
   renderCart();
+}
+function removeLine(i) { if (!S.cart[i]) return; S.cart.splice(i, 1); S.sel = Math.min(i, S.cart.length - 1); renderCart(); }
+$('#cart-lines').onclick = e => {
+  const b = e.target.closest('[data-a]');
+  if (!b) { const ln = e.target.closest('[data-line]'); if (ln) { S.sel = +ln.dataset.line; renderCart(); $('#pos-q').focus(); } return; }
+  const i = +b.dataset.i, l = S.cart[i]; if (!l) return;
+  S.sel = i;
+  if (b.dataset.a === 'inc') changeQty(i, 1);
+  if (b.dataset.a === 'dec') changeQty(i, -1);
+  if (b.dataset.a === 'rm') removeLine(i);
+  if (b.dataset.a === 'edit') return askQty(S.products[l.pid] || l, l);
+  $('#pos-q').focus();
 };
 $('#clear-btn').onclick = () => {
   const b = $('#clear-btn');
-  if (!b.classList.contains('armed')) { b.classList.add('armed'); b.textContent = 'Нажмите ещё раз, чтобы очистить'; setTimeout(() => { b.classList.remove('armed'); b.textContent = 'Очистить чек'; }, 2500); return; }
-  b.classList.remove('armed'); b.textContent = 'Очистить чек'; S.cart = []; renderCart(); $('#pos-q').focus();
+  if (!b.classList.contains('armed')) { b.classList.add('armed'); b.textContent = 'Точно очистить?'; setTimeout(() => { b.classList.remove('armed'); b.textContent = 'Очистить'; }, 2500); return; }
+  b.classList.remove('armed'); b.textContent = 'Очистить'; S.cart = []; renderCart(); $('#pos-q').focus();
 };
 $('#pay-btn').onclick = openPay;
 
+/* --- скидка на чек --- */
+$('#disc-btn').onclick = openDiscount;
+async function openDiscount() {
+  if (!S.cart.length) return;
+  if (S.maxDisc == null) { const { data } = await sb.rpc('cashier_max_discount'); S.maxDisc = data != null ? +data : 10; }
+  const cap = isOwner() ? 100 : S.maxDisc;
+  const presets = [3, 5, 10, 15, 20, 50].filter(v => v <= cap);
+  openModal(`${modalHead('Скидка на чек')}
+    <div class="modal-b">
+      <div class="quick disc-quick">${presets.map(v => `<button data-v="${v}"${v === S.discount ? ' class="on"' : ''}>${v}%</button>`).join('')}</div>
+      <div class="field"><label for="d-in">Свой процент</label><input class="inp num" id="d-in" type="number" min="0" max="${cap}" step="0.5" value="${S.discount || ''}" style="font-size:20px"></div>
+      <div class="muted" id="d-prev"></div>
+      ${isOwner() ? '' : `<div class="role-note">Кассир может дать скидку до ${cap}%. Больше — только владелец.</div>`}
+      <div class="err" id="d-err"></div>
+    </div>
+    <div class="modal-f">${S.discount ? '<button class="btn" id="d-off">Убрать скидку</button><span style="flex:1"></span>' : ''}<button class="btn" data-close>Отмена</button><button class="btn primary" id="d-ok">Применить</button></div>`,
+  { onMount: box => {
+      const inp = box.querySelector('#d-in');
+      const prev = () => { const v = +inp.value || 0, sub = cartSubtotal(), d = Math.round(sub * v / 100); box.querySelector('#d-prev').textContent = v ? `Скидка ${money(d)} · к оплате ${money(sub - d)}` : ''; };
+      const apply = v => {
+        if (!(v >= 0 && v <= cap)) { box.querySelector('#d-err').textContent = `Скидка — от 0 до ${cap}%`; return; }
+        S.discount = Math.round(v * 100) / 100; closeModal(); renderCart();
+      };
+      box.querySelector('.disc-quick').onclick = e => { const b = e.target.closest('button'); if (b) apply(+b.dataset.v); };
+      inp.oninput = prev; prev(); inp.onkeydown = e => { if (e.key === 'Enter') apply(+inp.value || 0); };
+      box.querySelector('#d-ok').onclick = () => apply(+inp.value || 0);
+      const off = box.querySelector('#d-off'); if (off) off.onclick = () => apply(0);
+      setTimeout(() => inp.focus(), 0);
+  } });
+}
+
+/* --- отложенные чеки (хранятся на этом компьютере) --- */
+const heldKey = () => 'duken-held-' + (S.me ? S.me.id : 'x');
+function getHeld() { try { return JSON.parse(localStorage.getItem(heldKey()) || '[]'); } catch (e) { return []; } }
+function setHeld(list) { try { localStorage.setItem(heldKey(), JSON.stringify(list)); } catch (e) { toast('Не удалось сохранить отложенный чек в этом браузере'); } }
+function renderHeld() {
+  const n = getHeld().length;
+  $('#held-btn').hidden = !n; $('#held-n').textContent = n;
+}
+$('#hold-btn').onclick = holdCart;
+function holdCart() {
+  if (!S.cart.length) return;
+  const list = getHeld();
+  list.push({ id: Date.now(), at: Date.now(), cart: S.cart, discount: S.discount, total: cartTotal() });
+  setHeld(list); S.cart = []; S.discount = 0; renderCart();
+  toast('Чек отложен. Можно обслуживать следующего покупателя'); $('#pos-q').focus();
+}
+$('#held-btn').onclick = () => {
+  const list = getHeld();
+  openModal(`${modalHead('Отложенные чеки')}
+    <div class="modal-b" style="padding:0">
+      ${list.map(h => `<div class="held-row">
+        <div><b class="num">${timeOf(h.at)}</b> · ${h.cart.length} ${plural(h.cart.length, 'позиция', 'позиции', 'позиций')}
+          <div class="muted" style="font-size:13px">${esc(h.cart.slice(0, 3).map(l => l.name).join(', '))}${h.cart.length > 3 ? '…' : ''}</div></div>
+        <b class="num">${money(h.total)}</b>
+        <div class="held-act"><button class="btn sm" data-del="${h.id}">Удалить</button><button class="btn sm primary" data-take="${h.id}">Вернуть</button></div>
+      </div>`).join('') || '<div class="empty">Нет отложенных чеков</div>'}
+      <div class="err" id="h-err" style="padding:0 18px 12px"></div>
+    </div>`,
+  { onMount: box => box.onclick = e => {
+      const take = e.target.closest('[data-take]'), del = e.target.closest('[data-del]');
+      if (take) {
+        if (S.cart.length) { box.querySelector('#h-err').textContent = 'Сначала отложите или проведите текущий чек'; return; }
+        const all = getHeld(), h = all.find(x => String(x.id) === take.dataset.take); if (!h) return;
+        setHeld(all.filter(x => x !== h));
+        S.cart = h.cart.map(l => { const p = S.products[l.pid]; return p ? { ...l, price: +p.price, name: p.name } : l; }).filter(l => S.products[l.pid]);
+        S.discount = h.discount || 0; S.sel = S.cart.length - 1; closeModal(); renderCart();
+      }
+      if (del) {
+        if (!del.classList.contains('armed')) { del.classList.add('armed'); del.textContent = 'Точно?'; return; }
+        setHeld(getHeld().filter(x => String(x.id) !== del.dataset.del)); renderHeld();
+        if (!getHeld().length) closeModal(); else $('#held-btn').click();
+      }
+  } });
+};
+
+/* --- последний чек --- */
+function renderLast() {
+  const el = $('#last-sale'), r = S.last;
+  el.hidden = !r || S.cart.length > 0;
+  if (r) el.innerHTML = `Последний чек № ${rno(r.no)} · ${money(r.total)}${r.method === 'cash' && +r.change > 0 ? ` · сдача <b>${money(r.change)}</b>` : ''} · <button class="linkbtn" id="last-open">показать</button>`;
+}
+$('#last-sale').onclick = e => { if (e.target.id === 'last-open' && S.last) showReceipt(S.last, false); };
+
+/* --- оплата --- */
 function openPay() {
   if (!S.cart.length) return;
   const total = cartTotal();
   let method = 'cash';
-  const q = [total, Math.ceil(total / 500) * 500, Math.ceil(total / 1000) * 1000, 5000, 10000, 20000].filter((v, i, a) => v >= total && a.indexOf(v) === i).slice(0, 5);
+  const q = [total, Math.ceil(total / 100) * 100, Math.ceil(total / 500) * 500, Math.ceil(total / 1000) * 1000, 2000, 5000, 10000, 20000]
+    .filter((v, i, a) => v >= total && a.indexOf(v) === i).slice(0, 6);
   openModal(`${modalHead('Оплата')}
     <div class="modal-b">
-      <div class="due"><span class="muted">К оплате</span><b>${money(total)}</b></div>
+      <div class="due"><span class="muted">К оплате${S.discount ? ` <span class="pill ok">скидка ${String(S.discount).replace('.', ',')}%</span>` : ''}</span><b>${money(total)}</b></div>
       <div class="methods">
-        <button class="method" data-m="cash" aria-pressed="true">Наличные<small>со сдачей</small></button>
-        <button class="method" data-m="card" aria-pressed="false">Карта<small>POS-терминал</small></button>
-        <button class="method" data-m="qr" aria-pressed="false">Kaspi QR<small>по QR-коду</small></button>
+        <button class="method" data-m="cash" aria-pressed="true">Наличные<small>клавиша 1</small></button>
+        <button class="method" data-m="card" aria-pressed="false">Карта<small>клавиша 2</small></button>
+        <button class="method" data-m="qr" aria-pressed="false">Kaspi QR<small>клавиша 3</small></button>
       </div>
       <div id="cash-box" class="stack" style="gap:10px">
-        <div class="field"><label for="cash-in">Получено от покупателя, ₸</label><input class="inp num" id="cash-in" type="number" min="0" step="1" inputmode="numeric" style="font-size:20px" placeholder="${total}"></div>
-        <div class="quick">${q.map(v => `<button data-v="${v}">${v.toLocaleString('ru-RU')}</button>`).join('')}</div>
+        <div class="field"><label for="cash-in">Получено от покупателя, ₸</label><input class="inp num" id="cash-in" type="number" min="0" step="1" inputmode="numeric" style="font-size:24px" placeholder="${total} — без сдачи"></div>
+        <div class="quick">${q.map((v, i) => `<button data-v="${v}">${i === 0 ? 'Без сдачи' : v.toLocaleString('ru-RU')}</button>`).join('')}</div>
         <div class="change"><span>Сдача</span><span class="num" id="change">—</span></div>
       </div>
       <div id="other-box" class="muted" hidden></div>
@@ -346,43 +529,51 @@ function openPay() {
   { onMount: box => {
       const cin = box.querySelector('#cash-in'), okBtn = box.querySelector('#pay-ok'), err = box.querySelector('#pay-err');
       const upd = () => { const v = +cin.value; box.querySelector('#change').textContent = v >= total ? money(v - total) : v ? 'не хватает ' + money(total - v) : '—'; };
-      box.querySelectorAll('.method').forEach(b => b.onclick = () => {
-        method = b.dataset.m; box.querySelectorAll('.method').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
-        box.querySelector('#cash-box').hidden = method !== 'cash';
-        const ob = box.querySelector('#other-box'); ob.hidden = method === 'cash';
-        ob.textContent = method === 'card' ? 'Проведите оплату на терминале и нажмите «Провести оплату», когда терминал одобрит платёж.'
+      const setMethod = m => {
+        method = m; box.querySelectorAll('.method').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.m === m)));
+        box.querySelector('#cash-box').hidden = m !== 'cash';
+        const ob = box.querySelector('#other-box'); ob.hidden = m === 'cash';
+        ob.textContent = m === 'card' ? 'Проведите оплату на терминале и нажмите «Провести оплату», когда терминал одобрит платёж.'
           : 'Покажите покупателю QR-код Kaspi. Подтвердите оплату после уведомления о поступлении.';
         err.textContent = '';
-      });
-      box.querySelector('.quick').onclick = e => { const b = e.target.closest('button'); if (b) { cin.value = b.dataset.v; upd(); } };
+        if (m === 'cash') setTimeout(() => cin.focus(), 0); else okBtn.focus();
+      };
+      box.querySelectorAll('.method').forEach(b => b.onclick = () => setMethod(b.dataset.m));
+      box.querySelector('.quick').onclick = e => { const b = e.target.closest('button'); if (b) { cin.value = b.dataset.v; upd(); cin.focus(); } };
       cin.oninput = upd;
       const ok = async () => {
         let received = null;
         if (method === 'cash') { received = cin.value === '' ? total : +cin.value; if (received < total) { err.textContent = 'Полученная сумма меньше суммы чека'; return; } }
         okBtn.disabled = true; okBtn.textContent = 'Проводим…'; err.textContent = '';
         const { data, error } = await sb.rpc('create_sale', {
-          p_method: method, p_received: received,
+          p_method: method, p_received: received, p_discount_pct: S.discount || 0,
           p_lines: S.cart.map(l => ({ product_id: l.pid, qty: l.qty })),
         });
         if (error) { okBtn.disabled = false; okBtn.innerHTML = 'Провести оплату <kbd>Enter</kbd>'; err.textContent = errText(error); if (/связи/.test(errText(error))) setOnline(false); return; }
         setOnline(true);
         S.cart.forEach(l => { const p = S.products[l.pid]; if (p) p.stock = r3(p.stock - l.qty); });
-        S.cart = []; renderCart(); renderGrid();
+        S.cart = []; S.discount = 0; S.last = data; renderCart(); renderGrid();
         showReceipt(data, true);
       };
       okBtn.onclick = ok;
-      box.addEventListener('keydown', e => { if (e.key === 'Enter' && !okBtn.disabled) { e.preventDefault(); ok(); } });
+      box.addEventListener('keydown', e => {
+        if (e.target !== cin && ['1', '2', '3'].includes(e.key)) { e.preventDefault(); setMethod({ 1: 'cash', 2: 'card', 3: 'qr' }[e.key]); return; }
+        if (e.key === 'Enter' && !okBtn.disabled) { e.preventDefault(); ok(); }
+      });
       setTimeout(() => cin.focus(), 0);
   } });
 }
 function receiptHTML(r) {
   const lines = r.lines || r.receipt_lines || [];
+  const hasDisc = +r.discount > 0;
   return `<div class="receipt">
     <div class="c"><b>${esc((CFG.shopName || 'Дүкен').toUpperCase())}</b><br>${esc(CFG.shopSubtitle || '')}<br>ТОВАРНЫЙ ЧЕК</div><hr>
     <div class="rr"><span>Чек № ${rno(r.no)}</span><span>${dtOf(r.created_at)}</span></div>
     <div>Кассир: ${esc(r.cashier_name)}</div><hr>
     ${lines.map(l => `<div class="it">${esc(l.name)}<div class="rr"><span>${qf(l.qty, l.unit)} × ${money(l.price)}</span><span>${money(l.sum)}</span></div></div>`).join('')}
-    <hr><div class="rr tot"><span>ИТОГО</span><span>${money(r.total)}</span></div>
+    <hr>
+    ${hasDisc ? `<div class="rr"><span>Сумма</span><span>${money(r.subtotal)}</span></div><div class="rr"><span>Скидка ${String(+r.discount_pct).replace('.', ',')}%</span><span>−${money(r.discount)}</span></div>` : ''}
+    <div class="rr tot"><span>ИТОГО</span><span>${money(r.total)}</span></div>
     <div class="rr"><span>${METHODS[r.method]}</span><span>${money(r.received)}</span></div>
     ${r.method === 'cash' ? `<div class="rr"><span>Сдача</span><span>${money(r.change)}</span></div>` : ''}
     <hr><div class="c muted" style="font-size:11px">Товарный чек, не фискальный<br>Спасибо за покупку!</div>
@@ -391,7 +582,8 @@ function receiptHTML(r) {
 }
 function showReceipt(r, fresh) {
   openModal(`${modalHead(fresh ? 'Оплата прошла' : 'Чек № ' + rno(r.no))}
-    <div class="modal-b">${fresh && r.method === 'cash' && +r.change > 0 ? `<div class="due"><span>Сдача покупателю</span><b>${money(r.change)}</b></div>` : ''}${receiptHTML(r)}</div>
+    <div class="modal-b">${fresh && r.method === 'cash' && +r.change > 0 ? `<div class="due change-due"><span>Сдача покупателю</span><b>${money(r.change)}</b></div>` : ''}${receiptHTML(r)}
+    ${fresh ? '<div class="role-note" style="text-align:center">Следующий скан сразу начнёт новый чек</div>' : ''}</div>
     <div class="modal-f">
       ${!fresh && !r.returned_at ? `<button class="btn danger" id="ret-btn">Оформить возврат</button><span style="flex:1"></span>` : ''}
       <button class="btn ${fresh ? 'primary' : ''}" data-close id="rc-close">${fresh ? 'Новая продажа' : 'Закрыть'}</button>
@@ -405,10 +597,27 @@ function showReceipt(r, fresh) {
         const { data, error } = await sb.rpc('return_receipt', { p_receipt: r.id });
         if (error) { rb.disabled = false; toast(errText(error)); return; }
         toast('Возврат оформлен, товар вернулся на склад');
+        if (S.last && S.last.id === data.id) S.last = data;
         loadSales(); loadProducts(); showReceipt(data, false);
       };
   } });
 }
+
+/* --- клавиши на экране кассы --- */
+document.addEventListener('keydown', e => {
+  if ($('#app').hidden || S.tab !== 'pos' || !$('#modal').hidden) return;
+  const t = e.target, inSearch = t && t.id === 'pos-q', otherInput = t && !inSearch && (t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.tagName === 'TEXTAREA');
+  if (otherInput) return;
+  const empty = !inSearch || !t.value;
+  if (e.key === 'F4') { e.preventDefault(); openDiscount(); return; }
+  if (e.key === 'F8') { e.preventDefault(); holdCart(); return; }
+  if (!empty || S.sel < 0) return;
+  if (e.key === '+' || e.key === '=') { e.preventDefault(); changeQty(S.sel, 1); }
+  else if (e.key === '-') { e.preventDefault(); changeQty(S.sel, -1); }
+  else if (e.key === 'Delete') { e.preventDefault(); removeLine(S.sel); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); S.sel = Math.max(0, S.sel - 1); renderCart(); }
+  else if (e.key === 'ArrowDown') { e.preventDefault(); S.sel = Math.min(S.cart.length - 1, S.sel + 1); renderCart(); }
+});
 
 /* ---------- товары ---------- */
 ['#pr-q', '#pr-cat', '#pr-low'].forEach(s => $(s).addEventListener('input', renderProductTable));
@@ -453,6 +662,7 @@ function editProduct(p, opts = {}) {
         <div class="field"><label for="f-stock">Остаток${p ? ' (меняется через «Склад»)' : ' на сейчас'}</label><input class="inp num" id="f-stock" type="number" step="0.001" value="${esc(n.stock)}" ${p ? 'disabled' : ''}></div>
         <div class="field"><label for="f-min">Мин. остаток</label><input class="inp num" id="f-min" type="number" min="0" step="0.001" value="${esc(n.min_stock)}"></div>
       </div>
+      <label class="chk"><input type="checkbox" id="f-pin"${n.pinned ? ' checked' : ''}> Показывать в «Быстрых товарах» на кассе</label>
       <div class="muted" id="f-margin" style="font-size:13px"></div>
       <div class="err" id="f-err"></div>
     </div>
@@ -480,7 +690,7 @@ function editProduct(p, opts = {}) {
         if (dup) return g('f-err').textContent = `Штрихкод уже у товара «${dup.name}»`;
         const unit = g('f-unit').value;
         const fields = { name, category: g('f-cat').value.trim() || 'Без категории', unit, barcode: bc || null,
-          plu: unit === 'кг' ? (g('f-plu').value.trim() || null) : null, cost: +g('f-cost').value || 0, price, min_stock: +g('f-min').value || 0 };
+          plu: unit === 'кг' ? (g('f-plu').value.trim() || null) : null, cost: +g('f-cost').value || 0, price, min_stock: +g('f-min').value || 0, pinned: g('f-pin').checked };
         g('f-save').disabled = true;
         const res = p
           ? await sb.from('products').update(fields).eq('id', p.id).select().single()
@@ -653,8 +863,8 @@ $('#cashier-btn').onclick = () => openModal(`${modalHead('Профиль')}
       };
       box.querySelector('#c-ok').onclick = ok; inp.onkeydown = e => { if (e.key === 'Enter') ok(); };
       box.querySelector('#c-out').onclick = async () => {
-        if (S.cart.length) return box.querySelector('#c-err').textContent = 'Сначала проведите или очистите текущий чек';
-        await sb.auth.signOut(); closeModal(); S.me = null; S.products = {}; showLogin();
+        if (S.cart.length) return box.querySelector('#c-err').textContent = 'Сначала проведите, отложите или очистите текущий чек';
+        await sb.auth.signOut(); closeModal(); S.me = null; S.products = {}; S.last = null; S.maxDisc = null; showLogin();
       };
   } });
 

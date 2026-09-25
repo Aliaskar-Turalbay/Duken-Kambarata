@@ -191,6 +191,94 @@ body[data-role="cashier"] .owner-only{display:none!important}
 .role-note{font-size:13px;color:var(--muted)}
 .setup{max-width:640px;margin:10vh auto;padding:24px;line-height:1.6}
 .setup code{font-family:var(--mono);background:var(--chip);padding:1px 6px;border-radius:5px}
+
+/* касса v2: крупнее, под сенсорный экран */
+.search .inp{padding-right:70px}
+.mult{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:var(--accent);color:var(--accent-ink);font-family:var(--mono);font-weight:600;border-radius:8px;padding:3px 9px}
+.btn.icon{padding:0;width:50px;height:50px;border-radius:12px;flex:none}
+.btn.icon[aria-pressed="false"]{color:var(--muted)}
+.btn.sm{padding:6px 11px;font-size:13px;border-radius:8px}
+.badge{background:var(--accent);color:var(--accent-ink);border-radius:999px;padding:0 7px;font-size:12px;font-family:var(--mono)}
+.sec-label{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:14px 0 8px}
+.quick-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
+.qtile{border:1.5px solid var(--accent);background:var(--accent-soft);color:var(--ink);border-radius:12px;padding:12px;min-height:76px;text-align:left;font-weight:600;font-size:15px;line-height:1.25;cursor:pointer;display:flex;flex-direction:column;justify-content:space-between;gap:6px;transition:transform .08s}
+.qtile:active{transform:scale(.97)}
+.qtile .pr{font-family:var(--mono);font-size:14px;color:var(--accent)}
+.grid{grid-template-columns:repeat(auto-fill,minmax(170px,1fr))}
+.tile{min-height:124px;padding:14px}
+.tile .nm{font-size:15px}
+.tile .pr{font-size:17px}
+.cart-count{font-weight:500;font-size:13px;margin-left:6px}
+.cart-h-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.line{cursor:pointer;padding:12px 16px}
+.line.sel{background:var(--accent-soft)}
+.line.sel .ln{color:var(--accent)}
+@keyframes lineflash{from{background:var(--warn-soft)}to{background:var(--accent-soft)}}
+.line.flash{animation:lineflash .7s ease-out}
+.line .short{color:var(--danger);font-weight:600}
+.qbtn{width:42px;height:42px;font-size:20px;border-radius:10px}
+.qval{min-height:42px;min-width:84px;font-size:14px}
+.cart-foot{gap:10px}
+.srow{display:flex;justify-content:space-between;font-size:14px;color:var(--muted)}
+.srow.disc{color:var(--accent);font-weight:600}
+.total-row .big{font-size:38px}
+.foot-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.foot-actions .btn{min-height:44px}
+#disc-btn.on{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+.pay-btn{min-height:64px;font-size:20px}
+.last-sale{font-size:13px;color:var(--muted);text-align:center;line-height:1.5}
+.linkbtn{border:0;background:none;color:var(--accent);font:inherit;font-weight:600;cursor:pointer;padding:0;text-decoration:underline}
+.empty .help{display:flex;flex-wrap:wrap;justify-content:center;gap:6px 14px;margin-top:14px;font-size:12px}
+.quick button{min-height:44px;padding:8px 14px;font-size:15px}
+.disc-quick button.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+.change-due{background:var(--accent-soft)}
+.change-due b{color:var(--accent);font-size:34px}
+.held-row{display:grid;grid-template-columns:1fr auto;gap:6px 12px;padding:14px 18px;border-bottom:1px solid var(--line);align-items:center}
+.held-act{grid-column:1/-1;display:flex;gap:8px;justify-content:flex-end}
+@media (max-width:980px){.total-row .big{font-size:32px}}
+
+/* касса v3: только чек, без каталога */
+.pos{grid-template-columns:minmax(0,1fr) 340px}
+.pos-left{display:flex;flex-direction:column;gap:12px;min-width:0}
+.search{position:relative}
+.search .inp{font-size:18px;padding-block:14px}
+.sug-box{position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:30;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);overflow:hidden;max-height:60vh;overflow-y:auto}
+.sug{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:12px;align-items:center;width:100%;border:0;border-bottom:1px solid var(--line);background:transparent;padding:12px 14px;text-align:left;cursor:pointer;min-height:56px}
+.sug:last-child{border-bottom:0}
+.sug.on,.sug:hover{background:var(--accent-soft)}
+.sug-nm{font-weight:600;display:flex;flex-direction:column;gap:2px;min-width:0}
+.sug-nm small{font-weight:400;color:var(--muted);font-family:var(--mono);font-size:12px}
+.sug-pr{font-weight:600;white-space:nowrap}
+.sug-empty{padding:14px;color:var(--muted)}
+#quick-wrap .quick-grid{grid-template-columns:repeat(auto-fill,minmax(130px,1fr))}
+#quick-wrap .qtile{min-height:60px}
+.pos-cart{display:flex;flex-direction:column;min-height:calc(100vh - 200px)}
+.pos-cart .cart-lines{flex:1;overflow-y:auto;max-height:calc(100vh - 250px)}
+.cart-head{display:grid;grid-template-columns:minmax(0,1fr) 200px 130px 80px;gap:12px;padding:8px 16px;border-bottom:1px solid var(--line);font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.cart-head span:nth-child(2){text-align:center}.cart-head span:nth-child(3){text-align:right}
+.pos-cart .line{grid-template-columns:minmax(0,1fr) 200px 130px 80px;grid-template-areas:"nm qty sum rm";gap:12px;align-items:center;padding:12px 16px}
+.pos-cart .line>div:nth-child(1){grid-area:nm;min-width:0}
+.pos-cart .line>div:nth-child(2){grid-area:sum;font-size:18px}
+.pos-cart .line>div:nth-child(3){grid-area:qty;justify-content:center}
+.pos-cart .line>div:nth-child(4){grid-area:rm}
+.pos-cart .line .ln{font-size:16px}
+.pos-cart .empty{padding:60px 16px}
+.totals{position:sticky;top:calc(env(safe-area-inset-top,0px) + 76px)}
+.totals .cart-foot{border-top:0;border-radius:14px;background:var(--surface);padding:18px}
+.total-block{display:flex;flex-direction:column;gap:2px;padding-block:6px 4px}
+.total-block .big{font-family:var(--mono);font-size:44px;font-weight:600;letter-spacing:-.02em;line-height:1.1}
+@media (max-width:980px){
+  .pos{grid-template-columns:1fr}
+  .totals{position:sticky;bottom:0;top:auto;z-index:10;box-shadow:0 -6px 20px rgba(0,0,0,.08)}
+  .totals .cart-foot{padding:12px 14px;gap:8px}
+  .total-block{flex-direction:row;justify-content:space-between;align-items:baseline}
+  .total-block .big{font-size:30px}
+  .totals .last-sale,.totals .srow{display:none}
+  .pos-cart{min-height:260px}.pos-cart .cart-lines{max-height:none}
+  .cart-head{display:none}
+  .pos-cart .line{grid-template-columns:1fr auto;grid-template-areas:"nm sum" "qty rm";gap:6px 10px}
+  .pos-cart .line>div:nth-child(3){justify-content:flex-start}
+}
 </style>
 </head>
 <body>
@@ -231,23 +319,42 @@ body[data-role="cashier"] .owner-only{display:none!important}
   <!-- POS -->
   <section class="view" id="v-pos">
     <div class="pos">
-      <div>
+      <div class="pos-left">
         <div class="search-row">
           <div class="search">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-            <input class="inp" id="pos-q" placeholder="Название, штрихкод или PLU — сканер вводит сюда" autocomplete="off">
+            <input class="inp" id="pos-q" placeholder="Сканируйте товар или начните вводить название" autocomplete="off" role="combobox" aria-controls="pos-sug">
+            <span class="mult" id="mult" hidden></span>
+            <div class="sug-box" id="pos-sug" role="listbox" hidden></div>
           </div>
+          <button class="btn icon" id="snd-btn" aria-pressed="true"></button>
         </div>
-        <div class="cats" id="pos-cats"></div>
-        <div class="grid" id="pos-grid"></div>
+        <div id="quick-wrap" hidden>
+          <div class="quick-grid" id="pos-quick"></div>
+        </div>
+        <div class="panel pos-cart">
+          <div class="panel-h">
+            <h2>Чек <span class="muted cart-count" id="cart-count">пусто</span></h2>
+            <div class="cart-h-actions">
+              <button class="btn sm" id="held-btn" hidden>Отложенные <span class="badge" id="held-n">0</span></button>
+              <button class="btn sm" id="hold-btn" disabled title="F8">Отложить</button>
+            </div>
+          </div>
+          <div class="cart-head" aria-hidden="true"><span>Товар</span><span>Количество</span><span>Сумма</span><span></span></div>
+          <div class="cart-lines" id="cart-lines"></div>
+        </div>
       </div>
-      <aside class="panel cart">
-        <div class="panel-h"><h2>Чек</h2><span class="muted" id="cart-count">0 позиций</span></div>
-        <div class="cart-lines" id="cart-lines"></div>
+      <aside class="panel totals">
         <div class="cart-foot">
-          <div class="total-row"><span class="muted">К оплате</span><span class="big" id="cart-total">0 ₸</span></div>
+          <div class="srow" id="sub-row" hidden><span>Сумма</span><span class="num" id="sub-sum"></span></div>
+          <div class="srow disc" id="disc-row" hidden><span>Скидка <b id="disc-pct"></b></span><span class="num" id="disc-sum"></span></div>
+          <div class="total-block"><span class="muted">К оплате</span><span class="big" id="cart-total">0 ₸</span></div>
           <button class="btn primary pay-btn" id="pay-btn" disabled>Оплатить <kbd>F9</kbd></button>
-          <button class="btn ghost" id="clear-btn" disabled>Очистить чек</button>
+          <div class="foot-actions">
+            <button class="btn" id="disc-btn" disabled title="F4">Скидка</button>
+            <button class="btn ghost" id="clear-btn" disabled>Очистить</button>
+          </div>
+          <div class="last-sale" id="last-sale" hidden></div>
         </div>
       </aside>
     </div>
